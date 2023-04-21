@@ -1,0 +1,58 @@
+# The purpose of the playbook is to return the status back to SOAR
+# even when the status is 'failed'
+- name: Get the CP4S DE health
+#  hosts: localhost
+  hosts: apphost
+  gather_facts: false
+  vars_files:
+    - variables.yml
+    - secrets.yml
+
+  tasks:
+    - name: Get the DE status
+      uri:
+        url: "{{ cp4s_server_uri }}/investigate/api/v1/health"
+        headers:
+          Accept: "application/json"
+          Content-Type: "application/json"
+        url_username: "{{ cp4s_api_key }}"
+        url_password: "{{ cp4s_api_pw }}"
+        force_basic_auth: true
+        status_code: [200,503]
+        method: GET
+        return_content: yes
+        validate_certs: "{{ validate_certs }}"
+      register: de_status
+      until: de_status.json is defined
+      retries: 3
+      delay: 10
+
+    - name: Get the UDS status
+      uri:
+        url: "{{ cp4s_server_uri }}/api/uds/v3/health"
+        headers:
+          Accept: "application/json"
+          Content-Type: "application/json"
+        url_username: "{{ cp4s_api_key }}"
+        url_password: "{{ cp4s_api_pw }}"
+        force_basic_auth: true
+        status_code: 200
+        method: GET
+        return_content: yes
+        validate_certs: "{{ validate_certs }}"
+      register: uds_status
+      until: uds_status.json is defined
+      retries: 3
+      delay: 10
+
+    - name: Merge results
+      no_log: true
+      set_fact:
+        output: "{{ output|default([]) + [item.json] }}"
+      loop:
+        - "{{ de_status }}"
+        - "{{ uds_status }}"
+
+    - name: Return the result
+      debug:
+        var: output

@@ -1,0 +1,39 @@
+- name: List QRadar SIEM open offenses (up to 10)
+#  hosts: localhost
+  hosts: apphost
+  gather_facts: false
+  vars_files:
+    - variables.yml
+    - secrets.yml
+  
+  vars:
+    q_fields: "id,description"
+    q_filter_open: 'status="OPEN"'
+
+  tasks:
+    - name: Get offense list
+      uri:
+        url: "{{ qradar_server_uri }}/api/siem/offenses?fields={{ q_fields }}&filter={{ q_filter_open }}"
+        headers:
+          Accept: "application/json"
+          Content-Type: "application/json"
+          SEC: "{{ qradar_token }}"
+          Range: "items=0-9"
+        status_code: 200
+        method: GET
+        return_content: yes
+        validate_certs: "{{ validate_certs }}"        
+      register: offenses_list
+      until: offenses_list.json is defined
+      retries: 3
+      delay: 10
+
+    - name: Create output list
+      no_log: true
+      set_fact:
+        output: "{{ output|default([]) + ['[{0}] {1}'.format(item.id,item.description)] }}"
+      loop: "{{ offenses_list.json }}"
+        
+    - name: Return results
+      debug:
+        var: output

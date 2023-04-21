@@ -1,0 +1,43 @@
+# The purpose of the playbook is to return the status back to SOAR
+- name: Get the CP4S TII health
+#  hosts: localhost
+  hosts: apphost
+  gather_facts: false
+  vars_files:
+    - variables.yml
+    - secrets.yml
+
+  tasks:
+    - name: Get the TII status by finding a threat id
+      uri:
+        url: "{{ cp4s_server_uri }}/api/tii/v1/threats/{{ cp4s_threat_id_to_check }}"
+        headers:
+          Accept: "application/json"
+          Content-Type: "application/json"
+        url_username: "{{ cp4s_api_key }}"
+        url_password: "{{ cp4s_api_pw }}"
+        force_basic_auth: true
+        status_code: [200,404]
+        method: GET
+        return_content: yes
+        validate_certs: "{{ validate_certs }}"
+      register: tii_threat
+      until: tii_threat.json is defined
+      retries: 3
+      delay: 10
+
+    - name: Set the success message
+      no_log: true
+      set_fact:
+        output: "Threat '{{ tii_threat.json.custom_objects[0].collectionTitle }}' found"
+      when: tii_threat.json.custom_objects is defined
+
+    - name: Set the failed message
+      no_log: true
+      set_fact:
+        output: "Threat id {{ cp4s_threat_id_to_check }} not found"
+      when: tii_threat.json.error is defined
+          
+    - name: Return results
+      debug:
+        var: output

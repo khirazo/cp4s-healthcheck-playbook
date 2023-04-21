@@ -1,0 +1,9 @@
+# Variables for QRadar SIEM
+qradar_server_uri: "https://your_qradar_host_name_or_ip"
+
+# Variables for CP4S
+cp4s_server_uri: "https://your_cp4s_host_name"
+
+# common for both QRadar and CP4S
+validate_certs: true
+#validate_certs: false
